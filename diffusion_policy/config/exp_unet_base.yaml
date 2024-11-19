@@ -94,7 +94,7 @@ training:
   tqdm_interval_sec: 1.0
 
 logging:
-  project: diffusion_policy
+  project: mdpol
   resume: False
   mode: online
   name: ${name}_${task_name}_infs${num_inference_steps}
