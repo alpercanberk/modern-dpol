@@ -97,7 +97,7 @@ logging:
   project: modern_diffusion_policy
   resume: False
   mode: online
-  name: ${now:%Y.%m.%d-%H.%M.%S}_${name}_${task_name}
+  name: ${name}_${task_name}_infs${num_inference_steps}
   tags: ["${name}", "${task_name}", "${exp_name}", "infs${num_inference_steps}"]
   id: "${name}_${task_name}_${exp_name}_infs${num_inference_steps}_seed${training.seed}"
   group: null
