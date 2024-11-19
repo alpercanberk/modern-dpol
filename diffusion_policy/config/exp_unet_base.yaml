@@ -86,7 +86,7 @@ training:
   gradient_accumulate_every: 1
   use_ema: True
   rollout_every: 100
-  checkpoint_every: 125
+  checkpoint_every: 100
   val_every: 1
   sample_every: 1
   max_train_steps: null
@@ -94,7 +94,7 @@ training:
   tqdm_interval_sec: 1.0
 
 logging:
-  project: mdp
+  project: mdifp
   resume: False
   mode: online
   name: ${name}_${task_name}_infs${num_inference_steps}
