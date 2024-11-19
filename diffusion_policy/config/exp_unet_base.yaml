@@ -87,14 +87,14 @@ training:
   use_ema: True
   rollout_every: 100
   checkpoint_every: 125
-  val_every: 2
-  sample_every: 2
+  val_every: 1
+  sample_every: 1
   max_train_steps: null
   max_val_steps: null
   tqdm_interval_sec: 1.0
 
 logging:
-  project: mdpol
+  project: mdp
   resume: False
   mode: online
   name: ${name}_${task_name}_infs${num_inference_steps}
@@ -104,8 +104,8 @@ logging:
 
 checkpoint:
   topk:
-    monitor_key: val_loss
-    mode: min
+    monitor_key: test_mean_score
+    mode: max
     k: 5
     format_str: 'epoch={epoch:04d}-test_mean_score={test_mean_score:.3f}.ckpt'
   save_last_ckpt: True
