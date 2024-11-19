@@ -267,6 +267,7 @@ class PushTKeypointsRunner(BaseLowdimRunner):
         # log aggregate metrics
         for prefix, value in max_rewards.items():
             name = prefix+'mean_score'
+            print(f'{prefix} mean score: {name}')
             value = np.mean(value)
             log_data[name] = value
 

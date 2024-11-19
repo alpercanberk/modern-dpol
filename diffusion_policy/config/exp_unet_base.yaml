@@ -94,7 +94,7 @@ training:
   tqdm_interval_sec: 1.0
 
 logging:
-  project: modern_diffusion_policy
+  project: diffusion_policy
   resume: False
   mode: online
   name: ${name}_${task_name}_infs${num_inference_steps}
@@ -104,7 +104,7 @@ logging:
 
 checkpoint:
   topk:
-    monitor_key: test_mean_score
+    monitor_key: test/mean_score
     mode: max
     k: 5
     format_str: 'epoch={epoch:04d}-test_mean_score={test_mean_score:.3f}.ckpt'
