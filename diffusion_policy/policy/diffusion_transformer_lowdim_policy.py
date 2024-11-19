@@ -50,6 +50,7 @@ class DiffusionTransformerLowdimPolicy(BaseLowdimPolicy):
         if num_inference_steps is None:
             num_inference_steps = noise_scheduler.config.num_train_timesteps
         self.num_inference_steps = num_inference_steps
+
     
     # ========= inference  ============
     def conditional_sample(self, 
@@ -201,10 +202,14 @@ class DiffusionTransformerLowdimPolicy(BaseLowdimPolicy):
         noise = torch.randn(trajectory.shape, device=trajectory.device)
         bsz = trajectory.shape[0]
         # Sample a random timestep for each image
-        timesteps = torch.randint(
-            0, self.noise_scheduler.config.num_train_timesteps, 
-            (bsz,), device=trajectory.device
-        ).long()
+        if not hasattr(self.noise_scheduler, 'sampling_weight'):
+            timesteps = torch.randint(
+                0, self.noise_scheduler.config.num_train_timesteps, 
+                (bsz,), device=trajectory.device
+            ).long()
+        else:
+            timesteps = self.noise_scheduler.sample_timesteps(bsz, device=trajectory.device)
+    
         # Add noise to the clean images according to the noise magnitude at each timestep
         # (this is the forward diffusion process)
         noisy_trajectory = self.noise_scheduler.add_noise(

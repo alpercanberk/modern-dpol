@@ -1,33 +1,30 @@
-name: lift_lowdim
+name: transport_lowdim
 
-obs_dim: 19
-action_dim: 7
+obs_dim: 59 # 41+(3+4+2)*2
+action_dim: 14 # 7*2
 keypoint_dim: 3
 
-obs_keys: &obs_keys ['object', 'robot0_eef_pos', 'robot0_eef_quat', 'robot0_gripper_qpos']
-task_name: &task_name lift
+obs_keys: &obs_keys [
+  'object', 
+  'robot0_eef_pos', 'robot0_eef_quat', 'robot0_gripper_qpos', 
+  'robot1_eef_pos', 'robot1_eef_quat', 'robot1_gripper_qpos'
+]
+task_name: &task_name transport
 dataset_type: &dataset_type ph
-dataset_path: &dataset_path data/robomimic/datasets/${task.task_name}/${task.dataset_type}/low_dim_v141.hdf5
+dataset_path: &dataset_path data/robomimic/datasets/${task.task_name}/${task.dataset_type}/low_dim.hdf5
 abs_action: &abs_action False
 
 env_runner:
   _target_: diffusion_policy.env_runner.robomimic_lowdim_runner.RobomimicLowdimRunner
   dataset_path: *dataset_path
   obs_keys: *obs_keys
-  # n_train: 6
-  # n_train_vis: 2
-  # train_start_idx: 0
-  # n_test: 50
-  # n_test_vis: 4
-  # test_start_seed: 100000
   n_train: 6
   n_train_vis: 0
   train_start_idx: 0
   n_test: 50
   n_test_vis: 0
   test_start_seed: 100000
-  # use python's eval function as resolver, single-quoted string as argument
-  max_steps: ${eval:'500 if "${task.dataset_type}" == "mh" else 400'}
+  max_steps: 700
   n_obs_steps: ${n_obs_steps}
   n_action_steps: ${n_action_steps}
   n_latency_steps: ${n_latency_steps}
@@ -36,8 +33,8 @@ env_runner:
   crf: 22
   past_action: ${past_action_visible}
   abs_action: *abs_action
-  tqdm_interval_sec: 1.0
   n_envs: 56
+# evaluation at this config requires a 16 core 64GB instance.
 
 dataset:
   _target_: diffusion_policy.dataset.robomimic_replay_lowdim_dataset.RobomimicReplayLowdimDataset

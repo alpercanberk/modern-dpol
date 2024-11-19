@@ -103,8 +103,9 @@ class AsyncVectorEnv(VectorEnv):
         self.metadata = dummy_env.metadata
 
         if (observation_space is None) or (action_space is None):
-            observation_space = observation_space or dummy_env.observation_space
-            action_space = action_space or dummy_env.action_space
+            observation_space = observation_space or dummy_env.observation_space #Dict('agent_pos': Box(0.0, 512.0, (2, 2), float32), 'image': Box(0.0, 1.0, (2, 3, 96, 96), float32))
+            action_space = action_space or dummy_env.action_space #Box(0.0, 512.0, (8, 2), float64)
+
         dummy_env.close()
         del dummy_env
         super(AsyncVectorEnv, self).__init__(
@@ -119,8 +120,9 @@ class AsyncVectorEnv(VectorEnv):
                     self.single_observation_space, n=self.num_envs, ctx=ctx
                 )
                 self.observations = read_from_shared_memory(
-                    _obs_buffer, self.single_observation_space, n=self.num_envs
+                    self.single_observation_space, _obs_buffer, n=self.num_envs
                 )
+
             except CustomSpaceError:
                 raise ValueError(
                     "Using `shared_memory=True` in `AsyncVectorEnv` "
@@ -140,6 +142,7 @@ class AsyncVectorEnv(VectorEnv):
         self.error_queue = ctx.Queue()
         target = _worker_shared_memory if self.shared_memory else _worker
         target = worker or target
+
         with clear_mpi_env_vars():
             for idx, env_fn in enumerate(self.env_fns):
                 parent_pipe, child_pipe = ctx.Pipe()
@@ -186,7 +189,7 @@ class AsyncVectorEnv(VectorEnv):
         _, successes = zip(*[pipe.recv() for pipe in self.parent_pipes])
         self._raise_if_errors(successes)
 
-    def reset_async(self):
+    def reset_async(self, seed, options): #ALPER TODO: seed and options
         self._assert_is_running()
         if self._state != AsyncState.DEFAULT:
             raise AlreadyPendingCallError(
@@ -199,7 +202,7 @@ class AsyncVectorEnv(VectorEnv):
             pipe.send(("reset", None))
         self._state = AsyncState.WAITING_RESET
 
-    def reset_wait(self, timeout=None):
+    def reset_wait(self, seed, options, timeout=None):
         """
         Parameters
         ----------
@@ -318,7 +321,7 @@ class AsyncVectorEnv(VectorEnv):
         """
         timeout = 0 if terminate else timeout
         try:
-            if self._state != AsyncState.DEFAULT:
+            if self._state != AsyncState.DEFAULT: #alper mod
                 logger.warn(
                     "Calling `close` while waiting for a pending "
                     "call to `{0}` to complete.".format(self._state.value)
@@ -623,7 +626,7 @@ def _worker_shared_memory(index, env_fn, pipe, parent_pipe, shared_memory, error
             if command == "reset":
                 observation = env.reset()
                 write_to_shared_memory(
-                    index, observation, shared_memory, observation_space
+                    observation_space, index, observation, shared_memory
                 )
                 pipe.send((None, True))
             elif command == "step":
@@ -631,7 +634,7 @@ def _worker_shared_memory(index, env_fn, pipe, parent_pipe, shared_memory, error
                 # if done:
                 #     observation = env.reset()
                 write_to_shared_memory(
-                    index, observation, shared_memory, observation_space
+                    observation_space, index, observation, shared_memory
                 )
                 pipe.send(((None, reward, done, info), True))
             elif command == "seed":

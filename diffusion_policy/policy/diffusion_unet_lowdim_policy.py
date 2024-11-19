@@ -186,7 +186,7 @@ class DiffusionUnetLowdimPolicy(BaseLowdimPolicy):
         nbatch = self.normalizer.normalize(batch)
         obs = nbatch['obs']
         action = nbatch['action']
-
+    
         # handle different ways of passing observation
         local_cond = None
         global_cond = None
@@ -208,6 +208,8 @@ class DiffusionUnetLowdimPolicy(BaseLowdimPolicy):
         else:
             trajectory = torch.cat([action, obs], dim=-1)
 
+        # print("trajectory", trajectory.shape, trajectory[0])
+
         # generate impainting mask
         if self.pred_action_steps_only:
             condition_mask = torch.zeros_like(trajectory, dtype=torch.bool)
@@ -218,10 +220,15 @@ class DiffusionUnetLowdimPolicy(BaseLowdimPolicy):
         noise = torch.randn(trajectory.shape, device=trajectory.device)
         bsz = trajectory.shape[0]
         # Sample a random timestep for each image
-        timesteps = torch.randint(
-            0, self.noise_scheduler.config.num_train_timesteps, 
-            (bsz,), device=trajectory.device
-        ).long()
+           # Sample a random timestep for each image
+        if not hasattr(self.noise_scheduler, 'sampling_weight'):
+            timesteps = torch.randint(
+                0, self.noise_scheduler.config.num_train_timesteps, 
+                (bsz,), device=trajectory.device
+            ).long()
+        else:
+            timesteps = self.noise_scheduler.sample_timesteps(bsz, device=trajectory.device)
+    
         # Add noise to the clean images according to the noise magnitude at each timestep
         # (this is the forward diffusion process)
         noisy_trajectory = self.noise_scheduler.add_noise(
@@ -229,6 +236,10 @@ class DiffusionUnetLowdimPolicy(BaseLowdimPolicy):
         
         # compute loss mask
         loss_mask = ~condition_mask
+
+        #if any element of loss mask is False, raise an error, rectified flows code is not able to handle this
+        if not loss_mask.any():
+            raise ValueError("No loss mask found, check your condition mask")
 
         # apply conditioning
         noisy_trajectory[condition_mask] = trajectory[condition_mask]
@@ -242,11 +253,22 @@ class DiffusionUnetLowdimPolicy(BaseLowdimPolicy):
             target = noise
         elif pred_type == 'sample':
             target = trajectory
+        elif pred_type == 'v_prediction':
+            target = self.noise_scheduler.get_velocity(trajectory, noise, timesteps)
+        elif pred_type == 'flow':
+            target = trajectory - noise
         else:
             raise ValueError(f"Unsupported prediction type {pred_type}")
 
+        info = {   
+            'timesteps': timesteps,
+            'num_train_timesteps': self.noise_scheduler.config.num_train_timesteps
+        }
         loss = F.mse_loss(pred, target, reduction='none')
         loss = loss * loss_mask.type(loss.dtype)
         loss = reduce(loss, 'b ... -> b (...)', 'mean')
+        info['unreduced_loss'] = loss.clone().mean(dim=-1).detach().cpu()
         loss = loss.mean()
-        return loss
+
+       
+        return loss, info

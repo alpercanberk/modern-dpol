@@ -82,6 +82,7 @@ class RobomimicLowdimWrapper(gym.Env):
         return obs
     
     def step(self, action):
+        random_idx = np.random.randint(0, 1000000)
         raw_obs, reward, done, info = self.env.step(action)
         obs = np.concatenate([
             raw_obs[key] for key in self.obs_keys
@@ -90,24 +91,30 @@ class RobomimicLowdimWrapper(gym.Env):
     
     def render(self, mode='rgb_array'):
         h, w = self.render_hw
-        return self.env.render(mode=mode, 
+        img = self.env.render(mode=mode, 
             height=h, width=w, 
             camera_name=self.render_camera_name)
+        return img
 
 
 def test():
     import robomimic.utils.file_utils as FileUtils
     import robomimic.utils.env_utils as EnvUtils
+    import robomimic.utils.obs_utils as ObsUtils
     from matplotlib import pyplot as plt
 
-    dataset_path = '/home/cchi/dev/diffusion_policy/data/robomimic/datasets/square/ph/low_dim.hdf5'
+    dataset_path = './data/robomimic/datasets/square/ph/low_dim_v141.hdf5'
     env_meta = FileUtils.get_env_metadata_from_dataset(
         dataset_path)
 
+
+    ObsUtils.initialize_obs_modality_mapping_from_dict(
+        {'low_dim': ['object', 'robot0_eef_pos', 'robot0_eef_quat', 'robot0_gripper_qpos']})
+    
     env = EnvUtils.create_env_from_metadata(
         env_meta=env_meta,
         render=False, 
-        render_offscreen=False,
+        render_offscreen=True,
         use_image_obs=False, 
     )
     wrapper = RobomimicLowdimWrapper(
@@ -117,7 +124,7 @@ def test():
             'robot0_eef_pos', 
             'robot0_eef_quat', 
             'robot0_gripper_qpos'
-        ]
+    ]
     )
 
     states = list()
@@ -129,5 +136,9 @@ def test():
 
     img = wrapper.render()
     plt.imshow(img)
+    plt.savefig('./robomimic_lowdim_wrapper_test.png')
     # wrapper.seed()
     # states.append(wrapper.env.get_state()['states'])
+
+if __name__ == '__main__':
+    test()

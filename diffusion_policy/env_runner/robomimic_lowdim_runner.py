@@ -67,6 +67,8 @@ class RobomimicLowdimRunner(BaseLowdimRunner):
             tqdm_interval_sec=5.0,
             n_envs=None
         ):
+
+
         """
         Assuming:
         n_obs_steps=2
@@ -157,7 +159,7 @@ class RobomimicLowdimRunner(BaseLowdimRunner):
                     enable_render=enable_render):
                     # setup rendering
                     # video_wrapper
-                    assert isinstance(env.env, VideoRecordingWrapper)
+                    assert isinstance(env.env, VideoRecordingWrapper), "env.env is not a VideoRecordingWrapper"
                     env.env.video_recoder.stop()
                     env.env.file_path = None
                     if enable_render:
@@ -168,7 +170,7 @@ class RobomimicLowdimRunner(BaseLowdimRunner):
                         env.env.file_path = filename
 
                     # switch to init_state reset
-                    assert isinstance(env.env.env, RobomimicLowdimWrapper)
+                    assert isinstance(env.env.env, RobomimicLowdimWrapper), "env.env.env is not a RobomimicLowdimWrapper"
                     env.env.env.init_state = init_state
 
                 env_seeds.append(train_idx)
@@ -184,7 +186,7 @@ class RobomimicLowdimRunner(BaseLowdimRunner):
                 enable_render=enable_render):
                 # setup rendering
                 # video_wrapper
-                assert isinstance(env.env, VideoRecordingWrapper)
+                assert isinstance(env.env, VideoRecordingWrapper), "env.env is not a VideoRecordingWrapper"
                 env.env.video_recoder.stop()
                 env.env.file_path = None
                 if enable_render:
@@ -195,7 +197,7 @@ class RobomimicLowdimRunner(BaseLowdimRunner):
                     env.env.file_path = filename
 
                 # switch to seed reset
-                assert isinstance(env.env.env, RobomimicLowdimWrapper)
+                assert isinstance(env.env.env, RobomimicLowdimWrapper), "env.env.env is not a RobomimicLowdimWrapper"
                 env.env.env.init_state = None
                 env.seed(seed)
 
@@ -250,7 +252,7 @@ class RobomimicLowdimRunner(BaseLowdimRunner):
             n_diff = n_envs - len(this_init_fns)
             if n_diff > 0:
                 this_init_fns.extend([self.env_init_fn_dills[0]]*n_diff)
-            assert len(this_init_fns) == n_envs
+            assert len(this_init_fns) == n_envs, "len(this_init_fns) != n_envs"
 
             # init envs
             env.call_each('run_dill_function', 

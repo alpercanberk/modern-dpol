@@ -1,8 +1,8 @@
 defaults:
   - _self_
-  - task: pusht_lowdim
+  - task: lift_lowdim
 
-name: train_diffusion_unet_lowdim
+name: train_diffusion_unet_ddim_vpred_lowdim
 _target_: diffusion_policy.workspace.train_diffusion_unet_lowdim_workspace.TrainDiffusionUnetLowdimWorkspace
 
 obs_dim: ${task.obs_dim}
@@ -10,6 +10,7 @@ action_dim: ${task.action_dim}
 keypoint_dim: ${task.keypoint_dim}
 task_name: ${task.name}
 exp_name: "default"
+num_inference_steps: 8
 
 horizon: 16
 n_obs_steps: 2
@@ -46,14 +47,14 @@ policy:
     clip_sample: True
     set_alpha_to_one: True
     steps_offset: 0
-    prediction_type: epsilon # or sample
+    prediction_type: v_prediction # or sample
 
   horizon: ${horizon}
   obs_dim: ${obs_dim}
   action_dim: ${action_dim}
   n_action_steps: ${eval:'${n_action_steps}+${n_latency_steps}'}
   n_obs_steps: ${n_obs_steps}
-  num_inference_steps: 8
+  num_inference_steps: ${num_inference_steps}
   obs_as_local_cond: ${obs_as_local_cond}
   obs_as_global_cond: ${obs_as_global_cond}
   pred_action_steps_only: ${pred_action_steps_only}
@@ -99,13 +100,13 @@ training:
   # optimization
   lr_scheduler: cosine
   lr_warmup_steps: 500
-  num_epochs: 8000
+  num_epochs: 1000
   gradient_accumulate_every: 1
   use_ema: True
   # training loop control
   # in epochs
-  rollout_every: 50
-  checkpoint_every: 50
+  rollout_every: 100
+  checkpoint_every: 500
   val_every: 1
   sample_every: 5
   # steps per epoch
@@ -115,12 +116,12 @@ training:
   tqdm_interval_sec: 1.0
 
 logging:
-  project: diffusion_policy_debug
-  resume: True
+  project: modern_diffusion_policy
+  resume: False
   mode: online
   name: ${now:%Y.%m.%d-%H.%M.%S}_${name}_${task_name}
-  tags: ["${name}", "${task_name}", "${exp_name}"]
-  id: null
+  tags: ["${name}", "${task_name}", "${exp_name}", "infs${num_inference_steps}"]
+  id: "${name}_${task_name}_${exp_name}_infs${num_inference_steps}_seed${training.seed}"
   group: null
 
 checkpoint:
