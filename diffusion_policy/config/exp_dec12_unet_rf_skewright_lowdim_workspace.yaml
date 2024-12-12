@@ -1,0 +1,12 @@
+defaults:
+  - exp_dec12
+  - _self_
+
+name: unet_rf_skewright_lowdim
+
+policy:
+  noise_scheduler:
+    _target_: diffusion_policy.common.schedulers.FlowMatchEulerDiscreteScheduler
+    num_train_timesteps: 1024
+    prediction_type: flow
+    sampling_weight: logit_normal_skewright

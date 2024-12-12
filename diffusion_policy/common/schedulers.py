@@ -27,12 +27,50 @@ from diffusers.schedulers.scheduling_utils import SchedulerMixin
 
 logger = logging.get_logger(__name__)  # pylint: disable=invalid-name
 
+
+##LOGIT NORMAL
 def logit(x):
     return torch.log(x) - torch.log(1-x)
 
 def logit_normal_pdf(x, m, s):
     x = torch.tensor(x).clamp(1e-7, 1-1e-7)
     return (1/(s * math.sqrt(2*math.pi))) * (1/x * (1-x)) * torch.exp(-(logit(x)-m)**2/(2*s**2))
+
+def sample_logit_normal(bsz, num_train_timesteps, device, m=0.0, s=1.0, eps=1e-3):
+    x = torch.linspace(0, 1, num_train_timesteps, device=device)
+    prob = logit_normal_pdf(x, m=m, s=s) + eps
+    prob = prob / prob.sum()
+    return torch.multinomial(prob, bsz, replacement=True).long()
+
+def mode_sampling_pdf(u, s):
+    """
+    Implements the mode sampling density function from equation (20)
+    
+    Args:
+        u: Input values between 0 and 1
+        s: Scale parameter
+    Returns:
+        Probability density at u
+    """
+    return 1 - u - s * (torch.cos(math.pi/2 * u)**2 - 1 + u)
+
+def sample_mode_distribution(bsz, num_train_timesteps, device, s=1.0, eps=1e-3):
+    """
+    Sample from the mode distribution
+    
+    Args:
+        bsz: Batch size
+        num_train_timesteps: Number of timesteps
+        device: Device to put tensors on
+        s: Scale parameter
+    Returns:
+        Sampled timesteps
+    """
+    x = torch.linspace(0, 1, num_train_timesteps, device=device)
+    prob = mode_sampling_pdf(x, s) + 1e-3  # Add small constant for numerical stability
+    prob = prob / prob.sum()  # Normalize to get proper probability distribution
+    return torch.multinomial(prob, bsz, replacement=True).long()
+
 
 @dataclass
 class FlowMatchEulerDiscreteSchedulerOutput(BaseOutput):
@@ -87,15 +125,27 @@ class FlowMatchEulerDiscreteScheduler(SchedulerMixin, ConfigMixin):
 
         while len(timesteps.shape) < len(original_samples.shape):
             timesteps = timesteps.unsqueeze(-1)
-        
+         
         return original_samples * timesteps + noise * (1 - timesteps)
     
     def sample_timesteps(self, bsz, device):
-        if self.sampling_weight == 'logit_normal':
+        if self.sampling_weight == 'logit_normal_centered':
             x = torch.linspace(0, 1, self.num_train_timesteps, device=device)
-            prob = logit_normal_pdf(x, m=0.0, s=1.0) + 1e-3
+            prob = logit_normal_pdf(x, m=0.0, s=1.25) + 1e-3
             prob = prob / prob.sum()
 
+            sample = torch.multinomial(prob, bsz, replacement=True).long()
+            return sample
+        elif self.sampling_weight == 'logit_normal_skewleft':
+            x = torch.linspace(0, 1, self.num_train_timesteps, device=device)
+            prob = logit_normal_pdf(x, m=-0.5, s=1.5) + 1e-3
+            prob = prob / prob.sum()
+            sample = torch.multinomial(prob, bsz, replacement=True).long()
+            return sample
+        elif self.sampling_weight == 'logit_normal_skewright':
+            x = torch.linspace(0, 1, self.num_train_timesteps, device=device)
+            prob = logit_normal_pdf(x, m=0.5, s=1.5) + 1e-3
+            prob = prob / prob.sum()
             sample = torch.multinomial(prob, bsz, replacement=True).long()
             return sample
         else:
