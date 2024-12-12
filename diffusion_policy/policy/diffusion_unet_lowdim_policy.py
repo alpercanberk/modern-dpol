@@ -274,6 +274,8 @@ class DiffusionUnetLowdimPolicy(BaseLowdimPolicy):
 
         if pred_type != 'flow':
             snr = compute_snr(self.noise_scheduler, timesteps)
+        else:
+            snr = torch.ones_like(timesteps)
 
         if pred_type == 'epsilon' or pred_type == 'flow':
             loss_weights = torch.ones_like(snr)
