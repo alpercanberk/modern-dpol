@@ -34,7 +34,7 @@ def logit(x):
 
 def logit_normal_pdf(x, m, s):
     x = torch.tensor(x).clamp(1e-7, 1-1e-7)
-    return (1/(s * math.sqrt(2*math.pi))) * (1/x * (1-x)) * torch.exp(-(logit(x)-m)**2/(2*s**2))
+    return (1/(s * np.sqrt(2*np.pi))) * (1/(x * (1-x))) * torch.exp(-(logit(x)-m)**2/(2*s**2))
 
 def sample_logit_normal(bsz, num_train_timesteps, device, m=0.0, s=1.0, eps=1e-3):
     x = torch.linspace(0, 1, num_train_timesteps, device=device)
