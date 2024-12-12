@@ -9,25 +9,19 @@ configs=(
 )
 
 tasks=(
-    "pusht_lowdim"
-    "lift_lowdim"
     "tool_hang_lowdim"
     "square_lowdim"
     "transport_lowdim"
 )
 
-#takes in a single parameter called partition, which is between 0 and 1
-partition=$1    
+# #takes in a single parameter called partition, which is between 0 and 1
+# partition=$1    
 
 # Convert inference_steps array to proper bash syntax
 # inference_steps=(8 16) if partition is 0
 # inference_steps=(32 64) if partition is 1
 
-if [ $partition -eq 0 ]; then
-    inference_steps=(8 16)
-else
-    inference_steps=(32 64)
-fi
+inference_steps=(8 16 32 64)
 
 # Define seeds array (42, 43, 44, 45)
 seeds=($(seq 42 45))

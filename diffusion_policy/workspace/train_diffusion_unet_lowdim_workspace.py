@@ -77,7 +77,7 @@ class TrainDiffusionUnetLowdimWorkspace(BaseWorkspace):
 
         self.global_step = 0
         self.epoch = 0
-
+        self.num_inference_timesteps_list = cfg.num_inference_timesteps_list
     def run(self):
         cfg = copy.deepcopy(self.cfg)
 
@@ -243,7 +243,11 @@ class TrainDiffusionUnetLowdimWorkspace(BaseWorkspace):
 
                 # run rollout
                 if (self.epoch % cfg.training.rollout_every) == 0:
-                    runner_log = env_runner.run(policy)
+                    if self.num_inference_timesteps_list is not None:
+                        print("Running rollout for multiple num_inference_timesteps: ", self.num_inference_timesteps_list)
+                        runner_log = env_runner.run_for_multiple_num_inference_timesteps(policy, self.num_inference_timesteps_list)
+                    else:
+                        runner_log = env_runner.run(policy)
                     # log all
                     step_log.update(runner_log)
 
@@ -262,6 +266,9 @@ class TrainDiffusionUnetLowdimWorkspace(BaseWorkspace):
                                     #log the buckets
                                     for i, loss in buckets.items():
                                         step_log[f'val_bucket_{i}'] = loss
+
+                                # if batch_idx == 0:
+                                #     breakpoint()
                                 
                                 val_losses.append(loss)
                                 if (cfg.training.max_val_steps is not None) \
@@ -279,18 +286,36 @@ class TrainDiffusionUnetLowdimWorkspace(BaseWorkspace):
                         batch = train_sampling_batch
                         obs_dict = {'obs': batch['obs']}
                         gt_action = batch['action']
-                        
-                        result = policy.predict_action(obs_dict)
-                        if cfg.pred_action_steps_only:
-                            pred_action = result['action']
-                            start = cfg.n_obs_steps - 1
-                            end = start + cfg.n_action_steps
-                            gt_action = gt_action[:,start:end]
+
+                        if self.num_inference_timesteps_list is not None:
+                            sample_idx = (self.epoch // cfg.training.sample_every) % len(self.num_inference_timesteps_list)
+                            num_inference_timesteps  = self.num_inference_timesteps_list[sample_idx]
+                            result = policy.predict_action(obs_dict, 
+                                num_inference_timesteps=num_inference_timesteps)
+
+                            if cfg.pred_action_steps_only:
+                                pred_action = result['action']
+                                start = cfg.n_obs_steps - 1
+                                end = start + num_inference_timesteps
+                                gt_action = gt_action[:,start:end]
+                            else:
+                                pred_action = result['action_pred']
+
+                            mse = torch.nn.functional.mse_loss(pred_action, gt_action)
+
+                            step_log[f'train_action_mse_error_infs{num_inference_timesteps}'] = mse.item()
                         else:
-                            pred_action = result['action_pred']
-                        mse = torch.nn.functional.mse_loss(pred_action, gt_action)
-                        # log
-                        step_log['train_action_mse_error'] = mse.item()
+                            result = policy.predict_action(obs_dict)
+                            if cfg.pred_action_steps_only:
+                                pred_action = result['action']
+                                start = cfg.n_obs_steps - 1
+                                end = start + cfg.n_action_steps
+                                gt_action = gt_action[:,start:end]
+                            else:
+                                pred_action = result['action_pred']
+                            mse = torch.nn.functional.mse_loss(pred_action, gt_action)
+                            # log
+                            step_log['train_action_mse_error'] = mse.item()
                         # release RAM
                         del batch
                         del obs_dict

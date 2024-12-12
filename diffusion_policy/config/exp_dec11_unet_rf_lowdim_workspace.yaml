@@ -1,0 +1,12 @@
+defaults:
+  - exp_dec11
+  - _self_
+
+name: unet_rf_linear_lowdim
+
+policy:
+  noise_scheduler:
+    _target_: diffusion_policy.common.schedulers.FlowMatchEulerDiscreteScheduler
+    num_train_timesteps: 1024
+    prediction_type: flow
+    sampling_weight: linear

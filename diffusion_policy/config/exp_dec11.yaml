@@ -20,7 +20,7 @@ keypoint_visible_rate: 1.0
 obs_as_local_cond: False
 obs_as_global_cond: False
 pred_action_steps_only: False
-num_inference_timesteps_list: [8, 16, 32, 64]
+num_inference_timesteps_list: [8, 16, 32]
 
 policy:
   _target_: diffusion_policy.policy.diffusion_unet_lowdim_policy.DiffusionUnetLowdimPolicy
@@ -86,8 +86,8 @@ training:
   num_epochs: 1000
   gradient_accumulate_every: 1
   use_ema: True
-  rollout_every: 1
-  checkpoint_every: 100
+  rollout_every: 50
+  checkpoint_every: 50
   val_every: 1
   sample_every: 1
   max_train_steps: null
@@ -95,7 +95,7 @@ training:
   tqdm_interval_sec: 1.0
 
 logging:
-  project: mdifp_debug_dec11
+  project: mdifp_dec11_weighted_01
   resume: False
   mode: online
   name: ${name}_${task_name}_infs${num_inference_steps}

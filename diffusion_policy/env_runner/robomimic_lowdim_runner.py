@@ -9,6 +9,7 @@ import h5py
 import dill
 import math
 import wandb.sdk.data_types.video as wv
+from typing import List, Dict
 from diffusion_policy.gym_util.async_vector_env import AsyncVectorEnv
 # from diffusion_policy.gym_util.sync_vector_env import SyncVectorEnv
 from diffusion_policy.gym_util.multistep_wrapper import MultiStepWrapper
@@ -65,7 +66,7 @@ class RobomimicLowdimRunner(BaseLowdimRunner):
             past_action=False,
             abs_action=False,
             tqdm_interval_sec=5.0,
-            n_envs=None
+            n_envs=None,
         ):
 
 
@@ -227,7 +228,18 @@ class RobomimicLowdimRunner(BaseLowdimRunner):
         self.abs_action = abs_action
         self.tqdm_interval_sec = tqdm_interval_sec
 
-    def run(self, policy: BaseLowdimPolicy):
+    def run_for_multiple_num_inference_timesteps(self, policy: BaseLowdimPolicy, num_inference_timesteps_list: List[int]):
+
+        run_logs = {}
+        for num_inference_timesteps in num_inference_timesteps_list:
+            run_log = self.run(policy, suffix=f"infs{num_inference_timesteps}_", policy_kwargs={"num_inference_timesteps": num_inference_timesteps})
+            run_logs.update(run_log)
+
+        print("final run_logs: ", run_logs)
+
+        return run_logs
+
+    def run(self, policy: BaseLowdimPolicy, suffix: str = "", policy_kwargs: Dict = None):
         device = policy.device
         dtype = policy.dtype
         env = self.env
@@ -286,7 +298,7 @@ class RobomimicLowdimRunner(BaseLowdimRunner):
 
                 # run policy
                 with torch.no_grad():
-                    action_dict = policy.predict_action(obs_dict)
+                    action_dict = policy.predict_action(obs_dict, **policy_kwargs)
 
                 # device_transfer
                 np_action_dict = dict_apply(action_dict,
@@ -332,18 +344,17 @@ class RobomimicLowdimRunner(BaseLowdimRunner):
             prefix = self.env_prefixs[i]
             max_reward = np.max(all_rewards[i])
             max_rewards[prefix].append(max_reward)
-            log_data[prefix+f'sim_max_reward_{seed}'] = max_reward
+            log_data[prefix+suffix+f'sim_max_reward_{seed}'] = max_reward
 
             # visualize sim
             video_path = all_video_paths[i]
             if video_path is not None:
                 sim_video = wandb.Video(video_path)
-                log_data[prefix+f'sim_video_{seed}'] = sim_video
+                log_data[prefix+suffix+f'sim_video_{seed}'] = sim_video
 
         # log aggregate metrics
         for prefix, value in max_rewards.items():
-            name = prefix+'mean_score'
-            print(f'{prefix} mean score: {name}')
+            name = prefix+suffix+'mean_score'
             value = np.mean(value)
             log_data[name] = value
 

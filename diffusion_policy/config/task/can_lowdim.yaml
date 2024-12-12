@@ -15,10 +15,10 @@ env_runner:
   dataset_path: *dataset_path
   obs_keys: *obs_keys
   n_train: 6
-  n_train_vis: 2
+  n_train_vis: 0
   train_start_idx: 0
   n_test: 50
-  n_test_vis: 4
+  n_test_vis: 0
   test_start_seed: 100000
   # use python's eval function as resolver, single-quoted string as argument
   max_steps: ${eval:'500 if "${task.dataset_type}" == "mh" else 400'}

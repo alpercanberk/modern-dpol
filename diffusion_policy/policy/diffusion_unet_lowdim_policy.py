@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Dict, List
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -9,6 +9,7 @@ from diffusion_policy.model.common.normalizer import LinearNormalizer
 from diffusion_policy.policy.base_lowdim_policy import BaseLowdimPolicy
 from diffusion_policy.model.diffusion.conditional_unet1d import ConditionalUnet1D
 from diffusion_policy.model.diffusion.mask_generator import LowdimMaskGenerator
+from diffusers.training_utils import EMAModel, compute_dream_and_update_latents, compute_snr
 
 class DiffusionUnetLowdimPolicy(BaseLowdimPolicy):
     def __init__(self, 
@@ -61,6 +62,7 @@ class DiffusionUnetLowdimPolicy(BaseLowdimPolicy):
             local_cond=None, global_cond=None,
             generator=None,
             # keyword arguments to scheduler.step
+            num_inference_steps=None,
             **kwargs
             ):
         model = self.model
@@ -71,7 +73,10 @@ class DiffusionUnetLowdimPolicy(BaseLowdimPolicy):
             dtype=condition_data.dtype,
             device=condition_data.device,
             generator=generator)
-    
+        
+
+        if num_inference_steps is not None:
+            self.num_inference_steps = num_inference_steps
         # set step values
         scheduler.set_timesteps(self.num_inference_steps)
 
@@ -96,7 +101,7 @@ class DiffusionUnetLowdimPolicy(BaseLowdimPolicy):
         return trajectory
 
 
-    def predict_action(self, obs_dict: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
+    def predict_action(self, obs_dict: Dict[str, torch.Tensor], **policy_kwargs) -> Dict[str, torch.Tensor]:
         """
         obs_dict: must include "obs" key
         result: must include "action" key
@@ -148,6 +153,8 @@ class DiffusionUnetLowdimPolicy(BaseLowdimPolicy):
             cond_mask,
             local_cond=local_cond,
             global_cond=global_cond,
+            num_inference_steps=policy_kwargs.get('num_inference_timesteps', None), #for inference with num_inference_steps_list
+            #if self.num_inference_steps is not None, it will override the default num_inference_steps
             **self.kwargs)
         
         # unnormalize prediction
@@ -264,11 +271,24 @@ class DiffusionUnetLowdimPolicy(BaseLowdimPolicy):
             'timesteps': timesteps,
             'num_train_timesteps': self.noise_scheduler.config.num_train_timesteps
         }
+
+        if pred_type != 'flow':
+            snr = compute_snr(self.noise_scheduler, timesteps)
+
+        if pred_type == 'epsilon':
+            loss_weights = torch.ones_like(snr)
+        elif pred_type == 'v_prediction':
+            loss_weights = snr/(snr+1)
+        else:
+            raise ValueError(f"Unsupported prediction type {pred_type}")
+
         loss = F.mse_loss(pred, target, reduction='none')
+
         loss = loss * loss_mask.type(loss.dtype)
         loss = reduce(loss, 'b ... -> b (...)', 'mean')
         info['unreduced_loss'] = loss.clone().mean(dim=-1).detach().cpu()
-        loss = loss.mean()
 
-       
+        weighted_loss = loss.mean(dim=-1) * loss_weights
+        loss = weighted_loss.mean()
+
         return loss, info
